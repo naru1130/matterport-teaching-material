@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Matterport SDK Test</title>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "MP_SDK": "https://api.matterport.com/sdk/bootstrap/3.0.0-0-g0517b8d76c/sdk.es6.js?applicationKey=ymffii7dt0x20s12nuw4z72nd"
+      }
+    }
+  </script>
+
+  <style>
+
+#studentGate {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#studentGateCard {
+  background: white;
+  color: #222;
+  width: 320px;
+  padding: 28px;
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+#studentGateCard input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0 16px;
+}
+
+#startMatterport {
+  width: 100%;
+  padding: 12px;
+  cursor: pointer;
+}
+
+#studentGateError {
+  color: #c00;
+}
+
+#quizMenu {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 2000;
+}
+
+#menuButton {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  cursor: pointer;
+}
+
+#menuPanel {
+  display: none;
+  position: absolute;
+  left: 40px;
+  top: 0;
+}
+
+#quizMenu:hover #menuPanel {
+  display: block;
+}
+
+#testButton {
+  position: static;
+  padding: 10px 15px;
+  font-size: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+  #quiz {
+  display: none;
+
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 1000;
+  }
+
+   #quiz button {
+    display: block;
+
+    width: 200px;
+
+    margin: 8px 0;
+    padding: 10px;
+
+    cursor: pointer;
+  }
+
+#result {
+  margin-top: 15px;
+  padding: 10px;
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+}
+
+#nextChoice {
+  display: none;
+  margin-top: 15px;
+}
+
+#endTestButton {
+  width: auto;
+  margin-bottom: 15px;
+  padding: 8px 15px;
+  cursor: pointer;
+}
+
+#resultScreen {
+  display: none;
+
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+
+  z-index: 3000;
+
+  width: 350px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+#resultScreen h2 {
+  text-align: center;
+}
+
+#score,
+#accuracy {
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+}
+
+#answerResults {
+  margin-top: 20px;
+}
+
+#matterportContainer {
+  position: relative;
+  width: 853px;
+  height: 480px;
+}
+
+#quizMenu.open #menuPanel {
+  display: block;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="studentGate">
+  <div id="studentGateCard">
+    <h2>利用者情報の入力</h2>
+    <p>クイズを始める前に入力してください。</p>
+
+    <form id="studentGateForm">
+      <label for="studentName">氏名</label>
+      <input id="studentName" type="text" required
+             autocomplete="name">
+
+      <label for="studentId">学籍番号</label>
+      <input id="studentId" type="text" required
+             autocomplete="off">
+
+      <button id="startMatterport" type="submit">
+        利用開始
+      </button>
+
+      <p id="studentGateError"></p>
+    </form>
+  </div>
+</div>
+
+  <h1>Matterport SDK Test</h1>
+
+  <div id="matterportContainer">
+
+<div id="quizMenu">
+  <button id="menuButton">◇</button>
+
+<div id="menuPanel">
+  <button id="testButton">クイズ</button>
+</div>
+
+</div>
+
+  <div id="quiz">
+
+    <button id="endTestButton">
+  テスト終了
+</button>
+
+ <p id="question"></p>
+
+  <button id="answerA"></button>
+  <button id="answerB"></button>
+  <button id="answerC"></button>
+
+  <div id="result"></div>
+
+  <div id="nextChoice">
+  <p>次はどうしますか？</p>
+
+  <button id="explanationButton">
+    解説タブに移動しますか？
+  </button>
+
+  <button id="nextQuestionButton">
+    次の問題
+  </button>
+
+</div>
+
+</div>
+
+<div id="resultScreen">
+
+  <h2>テスト結果</h2>
+
+  <p id="score"></p>
+
+  <p id="accuracy"></p>
+
+  <div id="answerResults"></div>
+
+  <button id="closeResultButton">
+    結果を閉じる
+  </button>
+
+</div>
+
+  <iframe
+    width="853"
+    height="480"
+    src="https://my.matterport.com/show?m=S4BUETgtwbJ&play=1&applicationKey=ymffii7dt0x20s12nuw4z72nd"
+    frameborder="0"
+    allow="fullscreen; xr-spatial-tracking"
+    id="showcase-iframe">
+  </iframe>
+
+  </div>
+
+  <script type="module">
+
+    import { connect } from 'MP_SDK';
+
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwwg0RPJ7JVDc2n0Yxz1UbNGBeiB7cuI3oO9WxuL3N89UK_E-_m_rpkr9PYnB9Xpyes/exec"
+
+    let studentInfo = {
+  studentName: "",
+  studentId: ""
+};
+
+document.getElementById("studentGateForm")
+  .addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    const studentName =
+      document.getElementById("studentName").value.trim();
+
+    const studentId =
+      document.getElementById("studentId").value.trim();
+
+    if (!studentName || !studentId) {
+      document.getElementById("studentGateError").textContent =
+        "氏名と学籍番号を入力してください。";
+      return;
+    }
+
+    studentInfo = {
+      studentName,
+      studentId
+    };
+
+    document.getElementById("studentGate").style.display = "none";
+
+    // 利用者情報が入力された後にMatterportを起動
+    connectSdk();
+  });
+
+    async function connectSdk() {
+
+      const iframe = document.getElementById('showcase-iframe');
+
+      try {
+
+        const mpSdk = await connect(iframe);
+
+        const questions = [
+  {
+    question: "金沢工業大学２号館の構造は？",
+    answers: ["木造", "鉄筋コンクリート造", "鉄骨造"],
+    correct: 1,
+    nextSweep: "ifhi11ih500zxbpyyxbn78u2b",
+    explanationSweep: "ifhi11ih500zxbpyyxbn78u2b"
+  },
+
+  {
+    question: "金沢工業大学２号館の竣工時期は？",
+    answers: ["1959", "1969", "1979"],
+    correct: 1,
+    nextSweep: "ha59ay42rqzmxznw7cfwq3nnc",
+    explanationSweep: "ha59ay42rqzmxznw7cfwq3nnc"
+  },
+
+  {
+    question: "金沢市にある有名な美術館は？",
+    answers: ["21世紀美術館", "国立西洋美術館", "森美術館"],
+    correct: 0,
+    nextSweep: "ここに3問目のSweep ID",
+    explanationSweep: "ここに3問目のSweep ID"
+  }
+];
+let currentQuestion = 0;
+let correctCount = 0;
+let answerResults = [];
+let detailedAnswers = [];
+
+function showQuestion() {
+
+  const q = questions[currentQuestion];
+
+  document.getElementById("question").textContent =
+    "Q. " + q.question;
+
+  document.getElementById("answerA").textContent =
+    "A：" + q.answers[0];
+
+  document.getElementById("answerB").textContent =
+    "B：" + q.answers[1];
+
+  document.getElementById("answerC").textContent =
+    "C：" + q.answers[2];
+
+  document.getElementById("result").textContent = "";
+}
+function answer(selectedAnswer) {
+  const q = questions[currentQuestion];
+  const isCorrect = selectedAnswer === q.correct;
+
+  if (isCorrect) {
+    document.getElementById("result").textContent = "正解！🎉";
+    correctCount++;
+    answerResults.push("○");
+  } else {
+    document.getElementById("result").textContent = "不正解！";
+    answerResults.push("×");
+  }
+
+  // 問題ごとの回答データを記録
+  detailedAnswers.push({
+    questionText: q.question,
+    selectedAnswer: q.answers[selectedAnswer],
+    correctAnswer: q.answers[q.correct],
+    isCorrect: isCorrect
+  });
+
+  // 回答ボタンを隠す
+  document.getElementById("answerA").style.display = "none";
+  document.getElementById("answerB").style.display = "none";
+  document.getElementById("answerC").style.display = "none";
+
+  // 次の操作を表示
+  document.getElementById("nextChoice").style.display = "block";
+}
+
+document.getElementById("nextQuestionButton").addEventListener("click", () => {
+
+  currentQuestion++;
+
+  if (currentQuestion < questions.length) {
+
+    // 選択肢を隠す
+    document.getElementById("nextChoice").style.display = "none";
+
+    // 回答ボタンを再表示
+    document.getElementById("answerA").style.display = "block";
+    document.getElementById("answerB").style.display = "block";
+    document.getElementById("answerC").style.display = "block";
+
+    // 次の問題を表示
+    showQuestion();
+
+  } else {
+
+    document.getElementById("question").textContent =
+      "クイズ終了！";
+
+    document.getElementById("nextChoice").style.display = "none";
+  }
+
+});
+
+document.getElementById("answerA").addEventListener("click", () => {
+  answer(0);
+});
+
+document.getElementById("answerB").addEventListener("click", () => {
+  answer(1);
+});
+
+document.getElementById("answerC").addEventListener("click", () => {
+  answer(2);
+});
+
+document.getElementById("explanationButton").addEventListener("click", () => {
+
+  const q = questions[currentQuestion];
+
+  mpSdk.Sweep.moveTo(q.explanationSweep, {});
+
+});
+
+
+// 「テスト表示」を押したとき
+document.getElementById("testButton").addEventListener("click", () => {
+
+  currentQuestion = 0;
+   correctCount = 0;
+  answerResults = [];
+  detailedAnswers = [];
+
+  document.getElementById("quiz").style.display = "block";
+
+  document.getElementById("answerA").style.display = "block";
+  document.getElementById("answerB").style.display = "block";
+  document.getElementById("answerC").style.display = "block";
+
+  document.getElementById("nextChoice").style.display = "none";
+
+  showQuestion();
+
+});
+
+
+// 「テスト終了」を押したとき
+document.getElementById("endTestButton").addEventListener("click", () => {
+
+  // クイズを隠す
+  document.getElementById("quiz").style.display = "none";
+
+  // 回答した問題数
+  const totalQuestions = answerResults.length;
+
+  // 正答率を計算
+  const accuracy =
+    totalQuestions > 0
+      ? (correctCount / totalQuestions) * 100
+      : 0;
+
+  // 正解数を表示
+  document.getElementById("score").textContent =
+    "正解数　" + correctCount + " / " + totalQuestions + "問";
+
+  // 正答率を表示
+  document.getElementById("accuracy").textContent =
+    "正答率　" + accuracy.toFixed(1) + "%";
+
+  // 結果一覧を表示
+  const resultsArea =
+    document.getElementById("answerResults");
+
+  resultsArea.innerHTML = "";
+
+  answerResults.forEach((result, index) => {
+
+    const p = document.createElement("p");
+
+    p.textContent =
+      "第" + (index + 1) + "問　" + result;
+
+    resultsArea.appendChild(p);
+
+  });
+
+  if (detailedAnswers.length > 0) {
+  const payload = {
+    studentName: studentInfo.studentName,
+    studentId: studentInfo.studentId,
+    quizType: "メイン画面",
+    answers: detailedAnswers
+  };
+
+  fetch(GAS_WEB_APP_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify(payload)
+  }).catch(error => {
+    console.error("クイズ結果の送信エラー:", error);
+  });
+}
+
+  // 結果画面を表示
+  document.getElementById("resultScreen").style.display = "block";
+
+});
+
+document.getElementById("closeResultButton").addEventListener("click", () => {
+
+  document.getElementById("resultScreen").style.display = "none";
+
+});
+
+        window.mpSdk = mpSdk;
+
+        mpSdk.Pointer.intersection.subscribe(function (intersectionData) {
+  console.log("クリックした場所の座標：", intersectionData.position);
+  console.log("面の向き：", intersectionData.normal);
+});
+
+        console.log("Hello SDK!", mpSdk);
+
+        const [tagId] = await mpSdk.Tag.add({
+  label: "中二階",
+  description: "金沢工業大学2号館の中二階です。",
+  anchorPosition: {
+    x: 1.9177,
+    y: -1.2143,
+    z: 5.0489
+  },
+  stemVector: {
+    x: 0,
+    y: 0.3,
+    z: 0
+  }
+});
+
+console.log("タグを追加しました！", tagId);
+
+console.log("サンドボックス登録を開始");
+const studentNameForSandbox = JSON.stringify(studentInfo.studentName).replace(/</g, "\\u003c");
+const studentIdForSandbox = JSON.stringify(studentInfo.studentId).replace(/</g, "\\u003c");
+const gasUrlForSandbox = JSON.stringify(GAS_WEB_APP_URL).replace(/</g, "\\u003c");
+const [sandboxId] = await mpSdk.Tag.registerSandbox(`
+</div>
+  
+<meta name="referrer" content="strict-origin-when-cross-origin">
+  <style>
+    html, body {
+      overflow: hidden;
+    }
+
+    body {
+      margin: 0;
+      padding: 15px;
+      color: white;
+      background-color: black;
+      font-family: sans-serif;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .imageBox {
+      width: 100%;
+      height: 200px;
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+
+    .imageBox img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    h2 {
+      margin: 0 0 10px 0;
+      font-size: 24px;
+    }
+
+    p {
+      margin: 0;
+      font-size: 16px;
+    }
+
+#quizTab {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#quizTab h3 {
+  font-size: 16px;
+  margin: 8px 0;
+}
+
+#quizTab {
+  width: 100%;
+  max-width: 100%;
+  max-height: none;
+  overflow-y: visible;
+  box-sizing: border-box;
+  padding: 4px 12px 12px;
+}
+
+#quizQuestion {
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+#quizOptions label {
+  font-size: 12px;
+  margin: 5px 0 !important;
+}
+
+#quizTab button {
+  font-size: 12px;
+  padding: 5px 8px;
+}
+
+#quizResult {
+  font-size: 22px;
+  font-weight: bold;
+  line-height: 1.2;
+  margin-top: 0;
+  min-height: 0;
+}
+
+#quizFooter {
+  display: flex;
+  align-items: center;
+  jusify-content: space-between;
+  gap:8px;
+  margin-top: 0 !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#quizResult {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+#nextQuiz {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+  </style>
+
+  <div style="display:flex; gap:5px; margin-bottom:15px;">
+  <button id="showImages">画像</button>
+  <button id="showVideo">動画</button>
+  <button id="showQuiz">クイズ</button>
+</div>
+
+  <div id="imagesTab">
+  <div class="imageBox">
+  <img id="galleryImage" src="https://www.kanazawa-it.ac.jp/campus_guide/2024/campus_map/img/map_1.png">
+</div>
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+  <button id="prevImage">前へ</button>
+  <span id="imageCount">1 / 3</span>
+  <button id="nextImage">次へ</button>
+</div>
+</div>
+<div id="videoTab" style="display:none;">
+ <video controls width="100%" playsinline>
+   <source src=".videos/nakaniwa.mp4" type="video/mp4">
+   動画を再生できません
+　</video>
+</div>
+
+<div id="quizTab" style="display:none;">
+  <h3>中二階クイズ！</h3>
+
+  <p id="quizQuestion">第1問</p>
+
+  <div id="quizOptions"></div>
+
+  <button id="checkQuiz">回答する</button>
+
+ <div id="quizFooter" style="
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  width: 100%;
+  box-sizing: border-box;
+">
+  <div id="quizResult" style="
+    font-size: 22px;
+    font-weight: bold;
+    flex: 1;
+    min-width: 0;
+  "></div>
+
+  <button id="nextQuiz" style="
+    display: none;
+    margin-left: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+  ">次の問題へ</button>
+</div>
+</div>
+  
+
+<script>
+document.body.insertAdjacentHTML(
+ "afterbegin",
+ "<p></p>"
+ );
+ 
+  const galleryImages = [
+    "https://www.kanazawa-it.ac.jp/campus_guide/2024/campus_map/img/map_1.png",
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQo6wuZ0xxI2qZ_UF4O8bk7o2MGv68EFnbqR2tRB7c2iw&s=10",
+    "https://www.kanazawa-it.ac.jp/campus_guide/2024/campus_map/img/map_1.png"
+  ];
+
+  let galleryIndex = 0;
+
+  function updateGallery() {
+    document.getElementById("galleryImage").src =
+      galleryImages[galleryIndex];
+
+    document.getElementById("imageCount").textContent =
+      (galleryIndex + 1) + " / " + galleryImages.length;
+  }
+
+  document.getElementById("prevImage").addEventListener("click", () => {
+    galleryIndex =
+      (galleryIndex - 1 + galleryImages.length) % galleryImages.length;
+    updateGallery();
+  });
+
+  document.getElementById("nextImage").addEventListener("click", () => {
+    galleryIndex = (galleryIndex + 1) % galleryImages.length;
+    updateGallery();
+  });
+  function showTab(tabName) {
+  document.getElementById("imagesTab").style.display = "none";
+  document.getElementById("videoTab").style.display = "none";
+  document.getElementById("quizTab").style.display = "none";
+
+  document.getElementById(tabName).style.display = "block";
+}
+
+document.getElementById("showImages").addEventListener("click", () =>{
+ showTab("imagesTab");
+});
+
+document.getElementById("showVideo").addEventListener("click", () => {
+ alert("動画ボタンのクリック成功")
+});
+
+document.getElementById("showQuiz").addEventListener("click", () => {
+ showTab("quizTab");
+});
+
+const studentName = ${studentNameForSandbox};
+const studentId = ${studentIdForSandbox};
+const GAS_WEB_APP_URL = ${gasUrlForSandbox};
+const questions = [
+  {
+    question: "第1問：この場所はどこの大学にあるでしょう？",
+    options: ["金沢工業大学", "金沢大学", "富山大学"],
+    answer: "A"
+  },
+  {
+    question: "第2問：この場所は建物のどの部分でしょう？",
+    options: ["屋上", "中二階", "地下"],
+    answer: "B"
+  },
+  {
+    question: "第3問：Matterportでは何ができるでしょう？",
+    options: ["3D空間を見て回る", "建物を自動で建てる", "部屋の温度を変える"],
+    answer: "A"
+  }
+];
+
+let currentQuestion = 0;
+let score = 0;
+let answered = false;
+let detailedAnswers = [];
+
+function showQuestion() {
+  const q = questions[currentQuestion];
+
+  document.getElementById("quizQuestion").textContent = q.question;
+
+  document.getElementById("quizOptions").innerHTML =
+  q.options.map((option, i) =>
+    '<label style="display:block; margin:10px 0;">' +
+    '<input type="radio" name="quizAnswer" value="' +
+    ["A", "B", "C"][i] + '">' +
+    ["A", "B", "C"][i] + ". " + option +
+    '</label>'
+  ).join("");
+
+  document.getElementById("quizResult").textContent = "";
+  document.getElementById("checkQuiz").style.display = "inline-block";
+  document.getElementById("checkQuiz").disabled = false;
+  document.getElementById("nextQuiz").style.display = "none";
+
+  answered = false;
+}
+
+document.getElementById("checkQuiz").addEventListener("click", () => {
+  if (answered) return;
+
+  const selected = document.querySelector(
+    'input[name="quizAnswer"]:checked'
+  );
+
+  const result = document.getElementById("quizResult");
+
+  if (!selected) {
+    result.textContent = "選択肢を選んでね！";
+    return;
+  }
+
+  answered = true;
+
+  const q = questions[currentQuestion];
+  const selectedIndex = ["A", "B", "C"].indexOf(selected.value);
+  const correctIndex = ["A", "B", "C"].indexOf(q.answer);
+  const isCorrect = selected.value === q.answer;
+
+  detailedAnswers.push({
+    questionText: q.question,
+    selectedAnswer: q.options[selectedIndex],
+    correctAnswer: q.options[correctIndex],
+    isCorrect: isCorrect
+  });
+
+  if (isCorrect) {
+    score++;
+    result.textContent = "正解！🎉";
+  } else {
+    result.textContent = "不正解！";
+  }
+
+  document.getElementById("checkQuiz").disabled = true;
+  document.getElementById("nextQuiz").style.display = "inline-block";
+
+  document.getElementById("nextQuiz").textContent =
+    currentQuestion === questions.length - 1
+      ? "結果を見る"
+      : "次の問題へ";
+});
+
+document.getElementById("nextQuiz").addEventListener("click", () => {
+  if (currentQuestion < questions.length - 1) {
+    currentQuestion++;
+    showQuestion();
+  } else {
+    document.getElementById("quizQuestion").textContent = "クイズ終了！";
+    document.getElementById("quizOptions").innerHTML = "";
+    document.getElementById("quizResult").textContent =
+      questions.length + "問中 " + score + " 問正解！";
+
+    document.getElementById("checkQuiz").style.display = "none";
+    document.getElementById("nextQuiz").style.display = "none";
+
+    if (detailedAnswers.length > 0) {
+      const payload = {
+        studentName: studentName,
+        studentId: studentId,
+        quizType: "中二階パネル",
+        answers: detailedAnswers
+      };
+
+      fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify(payload)
+      }).catch(error => {
+        console.error("パネルクイズ送信エラー:", error);
+      });
+    }
+  }
+});
+
+showQuestion();
+
+<\/script>
+
+`, {
+  name: "中二階パネル",
+  size: {
+    w: 300,
+    h: 300
+  }
+});
+
+await mpSdk.Tag.attach(tagId, sandboxId);
+
+mpSdk.on(mpSdk.Mattertag.Event.CLICK, function (tagSid) {
+  console.log("タグがクリックされました！", tagSid);
+});
+
+        const modelData = await mpSdk.Model.getData();
+
+        console.log("Model SID:", modelData.sid);
+
+      } catch (e) {
+
+        console.error(e);
+
+      }
+
+    }
+
+    document.getElementById("menuButton").addEventListener("click", () => {
+  document.getElementById("quizMenu").classList.toggle("open");
+});
+
+  </script>
+
+</body>
+</html>
